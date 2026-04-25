@@ -1,0 +1,40 @@
+---
+title: 'Environment variables for GoReleaser Action'
+description: 'Reference for GITHUB_TOKEN and GORELEASER_KEY environment variables used with GoReleaser Action, including required permissions and when each is needed.'
+---
+
+GoReleaser Action reads credentials from the `env:` block on the action step rather than from inputs. This page covers the two environment variables that GoReleaser Action uses: `GITHUB_TOKEN`, which is required for most release workflows, and `GORELEASER_KEY`, which is required only when using the GoReleaser Pro distribution.
+
+<ParamField path="GITHUB_TOKEN" type="string" required>
+  The GitHub token used by GoReleaser to create releases, push tags, upload release assets, and call other GitHub APIs. GitHub Actions automatically provides this token as `secrets.GITHUB_TOKEN` — no manual configuration is needed to make it available.
+
+  The workflow must grant `contents: write` permission so that GoReleaser can create GitHub Releases and upload assets:
+
+  ```yaml
+  permissions:
+    contents: write
+  ```
+
+  **Cross-repository limitation:** `GITHUB_TOKEN` is scoped to the repository that triggered the workflow. Operations that write to a different repository — for example, pushing a Homebrew tap or a Scoop bucket — will fail with a permission error. For those cases, create a Personal Access Token with the `repo` scope, store it as a repository secret, and pass it instead. See [/advanced/limitations](/advanced/limitations) for details.
+</ParamField>
+
+<ParamField path="GORELEASER_KEY" type="string">
+  GoReleaser Pro license key. Required when `distribution: goreleaser-pro` is set. Store the key as a repository secret and reference it via `secrets.GORELEASER_KEY`. The action passes this variable to the GoReleaser binary at runtime.
+</ParamField>
+
+## Example env section
+
+```yaml
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+```
+
+Uncomment `GORELEASER_KEY` when switching to the `goreleaser-pro` distribution.

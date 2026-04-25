@@ -1,0 +1,63 @@
+---
+title: "Checksum and cosign verification in GoReleaser Action"
+description: "GoReleaser Action automatically verifies downloaded archive integrity using SHA-256 checksums and optionally validates cosign Sigstore signatures."
+---
+
+GoReleaser Action protects your supply chain by verifying every GoReleaser archive it downloads before extracting or running it. Two layers of verification run automatically: a SHA-256 checksum check that always runs, and an optional cosign Sigstore signature check that activates when `cosign` is available on `PATH`. This page explains what each layer verifies, when it runs, and how to enable cosign verification.
+
+## Checksum verification
+
+Checksum verification runs automatically on every install — no configuration required.
+
+When GoReleaser Action downloads a GoReleaser archive, it immediately fetches the matching `checksums.txt` file published alongside each release. It then computes the SHA-256 hash of the downloaded archive and compares it against the expected value listed in `checksums.txt`.
+
+The verification logic lives in the `verifyChecksum` function in `src/goreleaser.ts`:
+
+1. The action downloads `checksums.txt` from the same release URL as the archive.
+2. It computes `sha256(archive)` and looks up the expected hash for the archive filename in `checksums.txt`.
+3. If the hashes match, the install continues. If they don't, the action fails immediately with a checksum mismatch error.
+
+<Note>
+  If `checksums.txt` cannot be downloaded — for example, due to a network error — the action issues a warning and continues without checksum verification rather than failing the workflow. The warning appears in the action's log output.
+</Note>
+
+## Cosign signature verification
+
+Cosign signature verification is optional and activates automatically when `cosign` is found on `PATH`.
+
+After checksum verification succeeds, the action checks whether `cosign` is installed. If it is, the action downloads `checksums.txt.sigstore.json` — a Sigstore bundle published alongside each GoReleaser release — and runs `cosign verify-blob` against it.
+
+The verification uses the GoReleaser release workflow's OIDC identity as the certificate identity, scoped to the specific release tag. For the `nightly` channel, it uses the nightly workflow identity instead.
+
+To enable cosign verification, install cosign before the GoReleaser Action step using the official `sigstore/cosign-installer` action:
+
+```yaml
+      -
+        name: Install cosign
+        uses: sigstore/cosign-installer@v3
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+<Note>
+  Cosign signature verification requires GoReleaser **v2.13.0 or newer** (and the matching `nightly` build). Earlier releases ship a `.sig` detached signature signed with cosign v2, which is not compatible with the cosign v3 Sigstore bundle format the action verifies. For older versions, the cosign step is silently skipped — only the SHA-256 checksum verification runs.
+</Note>
+
+If cosign is not installed, the action logs `cosign not found in PATH, skipping signature verification` and continues without failing.
+
+## Version compatibility
+
+| GoReleaser version | SHA-256 checksum | Cosign Sigstore signature |
+| ------------------ | ---------------- | ------------------------- |
+| ≥ v2.13.0          | Yes              | Yes (when cosign on PATH) |
+| `nightly`          | Yes              | Yes (when cosign on PATH) |
+| < v2.13.0          | Yes              | No (silently skipped)     |
+
+Both verification layers work for tagged releases at v2.13.0 or newer and the `nightly` channel. For older tagged releases, only SHA-256 checksum verification runs.

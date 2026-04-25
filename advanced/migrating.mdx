@@ -1,0 +1,55 @@
+---
+title: "Migrating from GoReleaser Action v3 and v4"
+description: "Upgrade your workflows from GoReleaser Action v3 or v4 to the latest major version, with guidance on the auto-snapshot behavior change."
+---
+
+GoReleaser Action follows semantic versioning, and each major version may introduce breaking changes. The primary breaking change between v3/v4 and the current major version is the removal of the built-in auto-snapshot feature. This page explains what changed, how to update your workflow files, and how to replicate the old behavior explicitly.
+
+## Migrating from v3/v4
+
+The main breaking change introduced after v4 was the **removal of auto-snapshot**: the action no longer automatically appends `--snapshot` to the GoReleaser arguments when the workflow runs on a non-tag event.
+
+Auto-snapshot was a convenience feature designed to prevent accidental full releases on push events. It has been removed in favor of explicit workflow conditions, which are easier to reason about and audit.
+
+For a complete working reference implementation of the old auto-snapshot behavior, see the [goreleaser-action-v4-auto-snapshot-example](https://github.com/caarlos0/goreleaser-action-v4-auto-snapshot-example) repository.
+
+## Updating the action version
+
+Change the action reference in every workflow step that uses GoReleaser Action:
+
+```yaml
+# Before
+uses: goreleaser/goreleaser-action@v3
+# or
+uses: goreleaser/goreleaser-action@v4
+
+# After
+uses: goreleaser/goreleaser-action@v7
+```
+
+The action uses major version tags (v5, v6, v7) that are maintained via the `release-major-tag` workflow. Pinning to a major tag (e.g., `@v7`) means you automatically pick up patch and minor releases within that major.
+
+## Auto-snapshot migration
+
+If your workflow relied on auto-snapshot to run GoReleaser safely on every push, add an explicit `if` condition or use a conditional argument expression:
+
+```yaml
+      -
+        name: Run GoReleaser (snapshot on non-tag)
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          args: ${{ startsWith(github.ref, 'refs/tags/') && 'release --clean' || 'release --snapshot --clean' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+This expression passes `release --clean` on tag pushes and `release --snapshot --clean` on all other events, replicating the old auto-snapshot behavior with full visibility in your workflow file.
+
+<Note>
+  The [goreleaser-action-v4-auto-snapshot-example](https://github.com/caarlos0/goreleaser-action-v4-auto-snapshot-example) repository contains a minimal, complete working example you can copy directly into your project.
+</Note>
+
+<Tip>
+  GoReleaser itself may introduce breaking changes between major versions independent of the action. Check the [GoReleaser changelog](https://goreleaser.com/changelog) when upgrading GoReleaser versions alongside the action upgrade.
+</Tip>

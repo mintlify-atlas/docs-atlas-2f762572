@@ -1,0 +1,66 @@
+---
+title: "Using GoReleaser Pro with the GitHub Action"
+description: "Switch GoReleaser Action to the goreleaser-pro distribution and authenticate with your license key to unlock advanced release features."
+---
+
+GoReleaser Pro is the commercial distribution of GoReleaser that unlocks advanced release features beyond what the open-source edition provides. This page covers how to configure GoReleaser Action to use the Pro distribution, supply your license key at runtime, and pin specific Pro versions — everything you need to run [GoReleaser Pro](https://goreleaser.com/pro) in your GitHub Actions workflow.
+
+## Switching to the Pro distribution
+
+Set `distribution: goreleaser-pro` in the action's `with` inputs. The action downloads from `goreleaser/goreleaser-pro` releases instead of `goreleaser/goreleaser`, so no other installation steps are required.
+
+```yaml
+      -
+        name: Run GoReleaser Pro
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser-pro
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+```
+
+## License key setup
+
+GoReleaser Pro requires a valid license key at runtime. Provide it through the `GORELEASER_KEY` environment variable:
+
+1. Go to **Settings > Secrets and variables > Actions** in your repository.
+2. Click **New repository secret**.
+3. Name the secret `GORELEASER_KEY` and paste your license key as the value.
+4. Pass it to the action step via `env`:
+
+```yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+```
+
+<Note>
+  The Pro license key is only required at runtime when GoReleaser executes. If you use `install-only: true` to install the binary without running it, no license key is needed for that step.
+</Note>
+
+## Version pinning for Pro
+
+The `version` and `version-file` inputs work identically for the Pro distribution. You can pin to a semver constraint or an exact release:
+
+```yaml
+        with:
+          distribution: goreleaser-pro
+          version: '~> v2'        # latest v2 patch
+```
+
+Or read the version from a `.tool-versions` file:
+
+```yaml
+        with:
+          distribution: goreleaser-pro
+          version-file: .tool-versions
+```
+
+The action resolves the version against the `goreleaser/goreleaser-pro` releases page, so the same constraints you use for the open-source distribution apply here.
+
+---
+
+See [/reference/inputs](/reference/inputs) for the full list of action inputs and [/reference/environment-variables](/reference/environment-variables) for all supported environment variables.

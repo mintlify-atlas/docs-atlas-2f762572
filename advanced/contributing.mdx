@@ -1,0 +1,93 @@
+---
+title: "Contributing to GoReleaser Action"
+description: "Set up the GoReleaser Action development environment, run tests, build the dist bundle, and follow the commit and pull request conventions."
+---
+
+GoReleaser Action is a TypeScript GitHub Action bundled with `ncc`. Contributing requires Node.js and follows a standard format + lint + build + test workflow. This page covers everything you need to make changes, run the test suite, and submit a pull request.
+
+## Prerequisites
+
+- **Node.js** — use the version pinned in `.node-version` at the root of the repository. Tools like `nvm`, `fnm`, `asdf`, and `mise` read this file automatically and switch to the correct version when you enter the directory.
+- **cosign** — only required if you want to run the signature-verification integration tests locally. If `cosign` is not on your `PATH`, those tests are skipped automatically.
+
+## Setup
+
+Install dependencies with:
+
+```sh
+npm ci
+```
+
+## Development workflow
+
+<Steps>
+  <Step title="Make changes to src/">
+    Edit the TypeScript source files in the `src/` directory. The entry point is `src/main.ts`.
+  </Step>
+  <Step title="Run pre-checkin">
+    Run the full pre-commit check before staging anything:
+
+    ```sh
+    npm run pre-checkin
+    ```
+
+    This runs `format` + `lint:fix` + `build` + `test` in sequence — the same checks CI runs.
+  </Step>
+  <Step title="Commit src/ and dist/ together">
+    The action runtime loads `dist/index.js` directly. You must commit the generated `dist/` alongside your `src/` changes so the two stay in sync.
+  </Step>
+</Steps>
+
+## npm scripts
+
+| Script | Purpose |
+|--------|---------|
+| `npm run build` | Bundle `src/` to `dist/index.js` via `ncc` |
+| `npm run format` | Run Prettier (write) |
+| `npm run format-check` | Run Prettier (check only) |
+| `npm run lint` | Run ESLint (check only) |
+| `npm run lint:fix` | Run ESLint with `--fix` |
+| `npm test` | Run Jest with coverage |
+| `npm run pre-checkin` | `format` + `lint:fix` + `build` + `test` |
+
+## Tests
+
+`npm test` runs the full Jest suite. The integration tests:
+
+- Download real GoReleaser releases from GitHub
+- Verify `checksums.txt` against the downloaded archive
+- Verify the cosign Sigstore bundle when cosign is available on `PATH`
+
+These tests require outbound network access. Runs in offline or restrictive-proxy environments will see those integration tests fail — that is expected.
+
+<Note>
+  The `signing` CI job and `goreleaser-pro` matrix entries are skipped on pull requests from forks because they require repository secrets. This is expected behavior — you do not need to fix it for your PR to be accepted.
+</Note>
+
+## Commit conventions
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages:
+
+- `feat:` — new feature
+- `fix:` — bug fix
+- `test:` — test changes
+- `docs:` — documentation only
+- `chore:` — maintenance, dependency updates
+- `ci:` — CI configuration changes
+
+Keep the subject line at 72 characters or fewer.
+
+## Pull requests
+
+- Target the `master` branch.
+- `npm run pre-checkin` must pass before you open the PR.
+- Aim for one logical change per PR — smaller PRs are easier to review and merge faster.
+
+## Releasing (for maintainers)
+
+1. Create a new GitHub Release with a semver tag (e.g., `v7.1.0`) through the GitHub UI or with `gh release create v7.1.0 --generate-notes`.
+2. Run the **release major tag** workflow from the Actions tab:
+   - **target**: the new tag (e.g., `v7.1.0`)
+   - **major_version**: the major tag to repoint (e.g., `v7`)
+
+The workflow force-pushes the major version tag to the new release, so consumers pinned to `goreleaser/goreleaser-action@v7` automatically receive the update. The same workflow can be used as a rollback tool by passing an older tag as `target`.

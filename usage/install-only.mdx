@@ -1,0 +1,73 @@
+---
+title: "Install GoReleaser without running it"
+description: "Use install-only mode to add GoReleaser to your PATH in GitHub Actions without executing a release, enabling manual invocation in subsequent steps."
+---
+
+GoReleaser Action normally downloads GoReleaser and immediately executes it. Install-only mode separates those two concerns: the action installs GoReleaser and adds it to `PATH`, then returns — leaving you free to call `goreleaser` yourself in any subsequent step. This page explains when install-only mode is useful and how to configure it.
+
+## When to use install-only mode
+
+Install-only mode is useful when you need to:
+
+- **Call GoReleaser multiple times** in a single job with different arguments or configuration files
+- **Wrap GoReleaser in a custom script** that performs pre- or post-processing around the release
+- **Debug locally** by installing a specific GoReleaser version without triggering a full release
+- **Inspect the binary** or run `goreleaser check` to validate your configuration before releasing
+
+## Workflow snippet
+
+```yaml goreleaser.yml
+steps:
+  -
+    name: Install GoReleaser
+    uses: goreleaser/goreleaser-action@v7
+    with:
+      install-only: true
+  -
+    name: Show GoReleaser version
+    run: goreleaser -v
+```
+
+Setting `install-only: true` makes the action download and verify GoReleaser, add its directory to `PATH` via `core.addPath`, and return without executing anything. Every step that follows can invoke `goreleaser` directly as a shell command.
+
+<Note>
+  The `args` input is ignored when `install-only` is `true`. Any value you provide is silently discarded — the action returns before reaching the execution phase.
+</Note>
+
+## Using goreleaser in subsequent steps
+
+Once GoReleaser is on `PATH`, call it in any `run` step as you would locally:
+
+```yaml goreleaser.yml
+steps:
+  -
+    name: Checkout
+    uses: actions/checkout@v6
+    with:
+      fetch-depth: 0
+  -
+    name: Set up Go
+    uses: actions/setup-go@v6
+  -
+    name: Install GoReleaser
+    uses: goreleaser/goreleaser-action@v7
+    with:
+      version: '~> v2'
+      install-only: true
+  -
+    name: Validate GoReleaser config
+    run: goreleaser check
+  -
+    name: Build snapshot
+    run: goreleaser release --snapshot --clean
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  -
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/')
+    run: goreleaser release --clean
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+This pattern validates the configuration first, builds a snapshot on every run, and publishes a real release only when a tag is pushed — all using a single installed GoReleaser binary.

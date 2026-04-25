@@ -1,0 +1,119 @@
+---
+title: "Upload GoReleaser build artifacts in GitHub Actions"
+description: "Store GoReleaser-built artifacts using actions/upload-artifact for testing on pull requests and scheduled runs where no GitHub Release is published."
+---
+
+GoReleaser Action publishes a GitHub Release when it runs on a tag. On pull requests and scheduled runs there is no tag, so no release is created — but you still want to verify that the build succeeds and inspect the resulting binaries. This page shows how to capture those artifacts with `actions/upload-artifact`, how the `workdir` input affects where artifacts land, and how to use the action's structured outputs in downstream steps.
+
+## Workflow snippet
+
+```yaml goreleaser.yml
+-
+  name: Run GoReleaser
+  uses: goreleaser/goreleaser-action@v7
+  id: goreleaser
+  with:
+    version: '~> v2'
+    args: release --clean
+    workdir: myfolder
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+-
+  name: Upload assets
+  uses: actions/upload-artifact@v6
+  with:
+    name: myapp
+    path: myfolder/dist/*
+```
+
+## The `workdir` input
+
+By default, GoReleaser runs in the root of your repository and writes artifacts to `dist/`. When you set `workdir: myfolder`, two things change:
+
+1. GoReleaser's working directory shifts to `myfolder/` — it looks for `.goreleaser.yaml` there and resolves all relative paths from that directory.
+2. Build artifacts land in `myfolder/dist/` instead of `dist/`.
+
+The `actions/upload-artifact` step must use the same prefix (`myfolder/dist/*`) so it picks up the correct files.
+
+## Using the action outputs
+
+GoReleaser Action exposes two structured outputs after a successful run:
+
+| Output | Type | Description |
+|---|---|---|
+| `artifacts` | JSON | Array of built artifacts with their name, path, type, and checksum |
+| `metadata` | JSON | Release metadata including version, tag, and commit |
+
+To access these outputs, give the GoReleaser step an `id` and reference it in later steps:
+
+```yaml goreleaser.yml
+-
+  name: Run GoReleaser
+  uses: goreleaser/goreleaser-action@v7
+  id: goreleaser
+  with:
+    version: '~> v2'
+    args: release --clean
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+-
+  name: Print artifact paths
+  run: echo '${{ steps.goreleaser.outputs.artifacts }}'
+-
+  name: Print release metadata
+  run: echo '${{ steps.goreleaser.outputs.metadata }}'
+```
+
+For a full description of both outputs, see [Outputs reference](/reference/outputs).
+
+## Building without publishing
+
+When GoReleaser runs without a valid tag (for example on a pull request), it will attempt to publish a GitHub Release and fail. Pass `--snapshot` or `--skip=publish` to build artifacts without publishing:
+
+<Note>
+  Use `args: release --snapshot --clean` on pull request and schedule events to build binaries without creating a GitHub Release. Snapshot builds produce a version string based on the commit SHA instead of a tag, so they are safe to build at any time.
+</Note>
+
+A complete workflow that builds a snapshot on PRs and publishes a real release on tags:
+
+```yaml goreleaser.yml
+name: goreleaser
+
+on:
+  pull_request:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      -
+        name: Set up Go
+        uses: actions/setup-go@v6
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        id: goreleaser
+        with:
+          version: '~> v2'
+          args: ${{ startsWith(github.ref, 'refs/tags/') && 'release --clean' || 'release --snapshot --clean' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Upload snapshot artifacts
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: actions/upload-artifact@v6
+        with:
+          name: myapp-snapshot
+          path: dist/*
+```

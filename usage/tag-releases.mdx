@@ -1,0 +1,114 @@
+---
+title: "Trigger GoReleaser only on version tags"
+description: "Configure your GitHub Actions workflow to run GoReleaser exclusively when a version tag is pushed, preventing accidental releases on every commit."
+---
+
+GoReleaser Action runs whenever its workflow job executes. By default, that means every push and every pull request. For most projects, you only want to publish a real release when a version tag is pushed. This page covers two approaches to restricting GoReleaser to tag events, and explains when to prefer each one.
+
+## Approach 1: Limit the workflow trigger
+
+Restrict the entire workflow to run only when a tag is pushed using the `on.push.tags` event filter:
+
+<Tabs>
+  <Tab title="Tag trigger">
+```yaml goreleaser.yml
+name: goreleaser
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      -
+        name: Set up Go
+        uses: actions/setup-go@v6
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+  </Tab>
+  <Tab title="Step condition">
+```yaml goreleaser.yml
+name: goreleaser
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      -
+        name: Set up Go
+        uses: actions/setup-go@v6
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+  </Tab>
+</Tabs>
+
+## Approach 2: Conditional step execution
+
+Leave the workflow trigger broad (`on: push` and `on: pull_request`) and add an `if` condition directly on the GoReleaser step:
+
+```yaml
+-
+  name: Run GoReleaser
+  uses: goreleaser/goreleaser-action@v7
+  if: startsWith(github.ref, 'refs/tags/')
+  with:
+    version: '~> v2'
+    args: release --clean
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The `startsWith(github.ref, 'refs/tags/')` expression evaluates to `true` only when the triggering ref is a tag. On a branch push or pull request the step is skipped, but the rest of the job — checkout, Go setup, tests — still runs.
+
+## Trade-offs
+
+| | Approach 1: `on.push.tags` | Approach 2: `if` condition |
+|---|---|---|
+| Workflow runs on every push | No — only tag pushes trigger it | Yes — checkout and Go setup always run |
+| Can run tests on the same job | No | Yes |
+| Release step skipped on branches | Entire workflow skipped | Only the GoReleaser step is skipped |
+| Simpler workflow file | Yes | Slightly more complex |
+
+**Choose approach 1** when this workflow's only job is publishing releases and you have a separate workflow for tests.
+
+**Choose approach 2** when you want a single workflow that runs CI steps (lint, test) on every push and only releases on tags.
+
+For more details on workflow event syntax, see the [GitHub Actions workflow syntax documentation](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions).

@@ -1,0 +1,42 @@
+---
+title: 'GoReleaser Action outputs reference'
+description: 'Reference for the artifacts and metadata JSON outputs produced by GoReleaser Action, with examples of accessing them in downstream workflow steps.'
+---
+
+GoReleaser Action exposes two JSON outputs after a successful run: `artifacts` and `metadata`. Both are read from the GoReleaser `dist/` directory and set as step outputs, making them available to any downstream step in the same job via the `steps.<id>.outputs` context.
+
+<Note>
+  Outputs are only set when GoReleaser detects a config file and runs to completion. The action searches for config files in this order: `.config/goreleaser.yaml`, `.config/goreleaser.yml`, `.goreleaser.yaml`, `.goreleaser.yml`, `goreleaser.yaml`, `goreleaser.yml`. You can also pass a custom path via `--config` in the `args` input. Outputs are not set in `install-only` mode.
+</Note>
+
+<ResponseField name="artifacts" type="string">
+  JSON array of build artifacts produced by GoReleaser. The action reads this from `dist/artifacts.json` after the release completes and sets it as a step output. Parse the string with `fromJSON` in a subsequent step expression to work with individual artifact fields.
+</ResponseField>
+
+<ResponseField name="metadata" type="string">
+  JSON object containing build metadata written by GoReleaser to `dist/metadata.json`. Includes information such as the project name, version, and build commit. Parse the string with `fromJSON` to access individual fields downstream.
+</ResponseField>
+
+## Accessing outputs in downstream steps
+
+Add an `id` to the GoReleaser step, then reference outputs using `steps.<id>.outputs.<name>`:
+
+```yaml
+      -
+        name: Run GoReleaser
+        id: goreleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Use artifacts
+        run: echo '${{ steps.goreleaser.outputs.artifacts }}'
+      -
+        name: Use metadata
+        run: echo '${{ steps.goreleaser.outputs.metadata }}'
+```
+
+The `id` field on the GoReleaser step is required. Without it, GitHub Actions has no key to look up when resolving `steps.<id>.outputs`.

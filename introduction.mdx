@@ -1,0 +1,62 @@
+---
+title: "GoReleaser Action: Automate Go releases on GitHub"
+description: "GoReleaser Action is a GitHub Action that installs and runs GoReleaser in your CI pipeline, automating binary builds, changelogs, and releases for Go projects."
+---
+
+GoReleaser Action brings the full power of [GoReleaser](https://goreleaser.com/) into your GitHub Actions workflows. With a single step, you can build multi-platform Go binaries, generate changelogs, publish GitHub Releases, push Docker images, and distribute packages — all driven by your `.goreleaser.yaml` configuration.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Add GoReleaser to your workflow in under five minutes
+  </Card>
+  <Card title="Inputs reference" icon="sliders" href="/reference/inputs">
+    Full reference for every action input and its default value
+  </Card>
+  <Card title="Security & verification" icon="shield-check" href="/security/verification">
+    Automatic checksum and cosign signature verification
+  </Card>
+  <Card title="GoReleaser Pro" icon="star" href="/advanced/goreleaser-pro">
+    Use the Pro distribution for advanced release features
+  </Card>
+</CardGroup>
+
+## What GoReleaser Action does
+
+GoReleaser Action handles the entire lifecycle of adding GoReleaser to a GitHub Actions job:
+
+1. **Downloads** the requested GoReleaser version (OSS or Pro) from the official GitHub Releases page
+2. **Verifies** the downloaded archive against the published `checksums.txt` SHA-256 digest
+3. **Verifies the signature** using cosign and the Sigstore bundle when cosign is available on PATH
+4. **Runs** GoReleaser with the arguments you provide
+5. **Exposes** the resulting artifacts and metadata as action outputs for downstream steps
+
+<CardGroup cols={2}>
+  <Card title="Basic workflow" icon="play" href="/usage/basic-workflow">
+    A complete workflow that runs on every push and tag
+  </Card>
+  <Card title="Tag-triggered releases" icon="tag" href="/usage/tag-releases">
+    Trigger real releases only on version tags
+  </Card>
+  <Card title="Upload artifacts" icon="upload" href="/usage/upload-artifacts">
+    Store build artifacts for testing on non-tag runs
+  </Card>
+  <Card title="Install-only mode" icon="download" href="/usage/install-only">
+    Install GoReleaser without running it
+  </Card>
+</CardGroup>
+
+## Key features
+
+- **Both distributions** — works with `goreleaser` (open source) and `goreleaser-pro`
+- **Flexible version pinning** — pin to a semver constraint like `~> v2` or read from a `.tool-versions` file
+- **Supply chain security** — automatic checksum verification; optional cosign Sigstore signature verification
+- **Structured outputs** — artifacts and metadata JSON are available as action outputs for downstream steps
+- **Working directory support** — run GoReleaser in a subdirectory of your repository
+
+## Supported GoReleaser versions
+
+The action targets GoReleaser v2 by default (`version: '~> v2'`). You can pin an exact version or use any semver constraint supported by the [semver](https://github.com/npm/node-semver) library.
+
+<Note>
+  Cosign signature verification requires GoReleaser **v2.13.0 or newer**. For older versions the cosign step is silently skipped — only the `checksums.txt` SHA-256 verification runs.
+</Note>

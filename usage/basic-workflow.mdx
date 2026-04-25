@@ -1,0 +1,100 @@
+---
+title: "Basic release workflow for GoReleaser Action"
+description: "Set up a GitHub Actions workflow that builds and publishes Go releases on every push and pull request using GoReleaser Action, with a step-by-step breakdown."
+---
+
+GoReleaser Action provides a ready-made GitHub Actions step that downloads, verifies, and runs GoReleaser in your CI pipeline. This page walks through a complete workflow that triggers on every push and pull request — covering each step, the inputs you configure, and the `GITHUB_TOKEN` permission your job needs.
+
+## Complete workflow
+
+```yaml goreleaser.yml
+name: goreleaser
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      -
+        name: Set up Go
+        uses: actions/setup-go@v6
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+## Step breakdown
+
+### Checkout
+
+```yaml
+- name: Checkout
+  uses: actions/checkout@v6
+  with:
+    fetch-depth: 0
+```
+
+The standard `actions/checkout` step clones your repository. The `fetch-depth: 0` input is not optional here — it fetches the complete Git history rather than a shallow clone.
+
+<Note>
+  `fetch-depth: 0` is required for GoReleaser to generate a correct changelog. GoReleaser walks the commit history between tags to build the release notes. A shallow clone truncates that history and produces an incomplete or empty changelog.
+</Note>
+
+### Set up Go
+
+```yaml
+- name: Set up Go
+  uses: actions/setup-go@v6
+```
+
+`actions/setup-go` installs the Go toolchain and adds it to `PATH`. GoReleaser needs a working `go` binary to compile your project. You can pin a specific Go version with the `go-version` input if your project requires it.
+
+### Run GoReleaser
+
+```yaml
+- name: Run GoReleaser
+  uses: goreleaser/goreleaser-action@v7
+  with:
+    distribution: goreleaser
+    version: '~> v2'
+    args: release --clean
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+This step downloads GoReleaser, verifies its integrity, and executes it with the arguments you supply.
+
+#### Inputs
+
+| Input | Value | Purpose |
+|---|---|---|
+| `distribution` | `goreleaser` | Selects the open-source distribution. Use `goreleaser-pro` for the Pro edition. |
+| `version` | `~> v2` | Installs the latest v2 release. Accepts an exact version (`v2.13.0`) or any semver constraint. |
+| `args` | `release --clean` | Arguments forwarded to the GoReleaser binary. |
+
+<Tip>
+  The `--clean` flag tells GoReleaser to remove the `dist/` directory before building. This prevents leftover artifacts from a previous run mixing into your release. Always include `--clean` in CI to keep builds reproducible.
+</Tip>
+
+#### Environment variables
+
+`GITHUB_TOKEN` is the built-in token GitHub provides to every Actions job. GoReleaser uses it to create the GitHub Release and upload assets. The `permissions: contents: write` declaration at the job level grants the token the write access GoReleaser needs.
+
+For the full list of inputs, see [Inputs reference](/reference/inputs).

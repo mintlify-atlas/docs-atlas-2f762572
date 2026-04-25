@@ -1,0 +1,51 @@
+---
+title: "GoReleaser Action limitations and workarounds"
+description: "Understand GITHUB_TOKEN repository scope limitations and how to use a Personal Access Token for cross-repository operations like Homebrew tap publishing."
+---
+
+GoReleaser Action passes the `GITHUB_TOKEN` to GoReleaser by default, which works for most release scenarios. However, `GITHUB_TOKEN` has a hard scope boundary — it only has permission to act on the repository that contains your workflow. This page explains when that boundary becomes a problem and how to work around it.
+
+## GITHUB_TOKEN scope
+
+The `GITHUB_TOKEN` provided by GitHub Actions is automatically scoped to the repository containing the workflow. It cannot read from or write to any other repository, regardless of the permissions granted in the workflow `permissions` block.
+
+This becomes a limitation when GoReleaser needs to push content to a different repository, such as:
+
+- A **Homebrew tap** repository (e.g., `your-org/homebrew-tools`)
+- A **Scoop bucket** repository
+- Any other repository in a different org or under a different owner
+
+In these cases, the GoReleaser step will fail with a permission error because `GITHUB_TOKEN` does not have access to the target repository.
+
+## Using a Personal Access Token
+
+Replace `GITHUB_TOKEN` with a Personal Access Token (PAT) that has access to the repositories GoReleaser needs to write to.
+
+1. Create a PAT with the `repo` scope (see **Creating a Personal Access Token** in the GitHub documentation).
+2. Add the PAT as a repository secret — for example, `GH_PAT` (see **Using encrypted secrets** in the GitHub documentation).
+3. Pass the secret in place of `GITHUB_TOKEN`:
+
+```yaml
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+```
+
+<Warning>
+  A PAT with `repo` scope has broad write access across all repositories your account can access. Use the minimum required scopes, prefer fine-grained PATs when possible, and rotate them regularly.
+</Warning>
+
+## When is this needed?
+
+You need a PAT any time GoReleaser writes to a repository other than the one running the workflow. Common cases include:
+
+- Publishing a Homebrew formula to a tap repository in a different repo or org
+- Pushing a Scoop manifest to a bucket repository
+- Any GoReleaser publisher that opens pull requests or commits to an external repository
+
+If all release artifacts stay within the same repository (GitHub Releases, Docker Hub, etc.), the default `GITHUB_TOKEN` is sufficient.

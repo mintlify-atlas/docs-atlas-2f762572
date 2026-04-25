@@ -1,0 +1,81 @@
+{
+  "projectType": "general",
+  "projectName": "GoReleaser Action",
+  "projectDescription": "A GitHub Action that automates Go project releases using GoReleaser, supporting both open-source and Pro distributions with checksum and cosign signature verification.",
+  "theme": "aspen",
+  "primaryColor": "#848c8e",
+  "lightColor": "#11161e",
+  "darkColor": "#cfd0d2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Usage",
+            "pages": [
+              "usage/basic-workflow",
+              "usage/tag-releases",
+              "usage/install-only",
+              "usage/upload-artifacts"
+            ]
+          },
+          {
+            "group": "Security",
+            "pages": [
+              "security/verification",
+              "security/signing"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/inputs",
+              "reference/outputs",
+              "reference/environment-variables",
+              "reference/version-file"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/goreleaser-pro",
+              "advanced/limitations",
+              "advanced/migrating",
+              "advanced/contributing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Automated GoReleaser installation and execution in GitHub Actions workflows",
+    "Support for both goreleaser (OSS) and goreleaser-pro distributions",
+    "Automatic checksum verification of downloaded GoReleaser archives",
+    "Optional cosign sigstore signature verification for enhanced supply chain security",
+    "Flexible version pinning via semver constraints or .tool-versions file",
+    "Configurable working directory and pass-through argument support",
+    "Install-only mode to make goreleaser available as a CLI tool in subsequent steps",
+    "Structured JSON outputs for artifacts and build metadata"
+  ],
+  "publicApiSurface": [
+    "input: distribution (goreleaser | goreleaser-pro)",
+    "input: version (semver constraint, e.g. ~> v2)",
+    "input: version-file (path to .tool-versions file)",
+    "input: args (GoReleaser CLI arguments)",
+    "input: workdir (working directory)",
+    "input: install-only (boolean)",
+    "output: artifacts (JSON array of build artifacts)",
+    "output: metadata (JSON build metadata)",
+    "env: GITHUB_TOKEN",
+    "env: GORELEASER_KEY"
+  ]
+}

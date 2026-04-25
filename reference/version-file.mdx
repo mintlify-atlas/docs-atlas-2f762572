@@ -1,0 +1,55 @@
+---
+title: 'Pin GoReleaser version with a version file'
+description: 'Use a .tool-versions file (asdf/mise format) to declare the GoReleaser version alongside other tools, keeping version management consistent across environments.'
+---
+
+The `version-file` input lets you declare the GoReleaser version inside a file that is already committed to your repository rather than hardcoding it in the workflow YAML. This creates a single source of truth for tool versions that is shared between CI, local development with asdf or mise, and any other tooling that reads `.tool-versions`.
+
+## Supported formats
+
+<Note>
+  Only `.tool-versions` (asdf/mise format) is supported. Other version pin files such as `.nvmrc`, `.ruby-version`, or `.go-version` are not read by this input.
+</Note>
+
+Create or update a `.tool-versions` file at the root of your repository (or inside `workdir`) with a `goreleaser` entry:
+
+```text .tool-versions
+goreleaser 2.13.0
+```
+
+**Version normalisation:** bare semver strings that begin with a digit have a `v` prefix added automatically. The string `2.13.0` in the file becomes `v2.13.0` when passed to the installer. Constraint expressions such as `~> v2` or the string `latest` are passed through unchanged.
+
+**Comments:** full-line `#` comments and inline `# ...` suffixes are stripped before the line is parsed. Both forms below are valid:
+
+```text .tool-versions
+# pinned for CI reproducibility
+goreleaser 2.13.0  # last tested version
+```
+
+**Multiple fallback versions:** when a tool line lists more than one version (a mise/asdf fallback list), only the first version is used.
+
+## Usage
+
+Pass the path to the file via the `version-file` input. The path is resolved relative to `workdir` (default `.`):
+
+```yaml
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version-file: .tool-versions
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+When `version-file` is set, it takes precedence over the `version` input. If both are specified, `version` is ignored and the version from the file is used.
+
+If `workdir` points to a subdirectory, the `version-file` path is resolved relative to that directory:
+
+```yaml
+        with:
+          workdir: backend
+          version-file: .tool-versions   # resolves to backend/.tool-versions
+          args: release --clean
+```

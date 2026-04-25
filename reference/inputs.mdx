@@ -1,0 +1,72 @@
+---
+title: 'GoReleaser Action inputs reference'
+description: 'Complete reference for all GoReleaser Action step inputs: distribution, version, version-file, args, workdir, and install-only with defaults and usage notes.'
+---
+
+GoReleaser Action accepts six `with:` keys that control which distribution is installed, which version is resolved, where the action runs, and how GoReleaser is invoked. This page documents every input, its type, default value, and when to use it.
+
+<ParamField path="distribution" type="string" default="goreleaser">
+  GoReleaser distribution to install. Accepted values are `goreleaser` (open source, the default) and `goreleaser-pro`. Use `goreleaser-pro` together with the `GORELEASER_KEY` environment variable when your workflow requires GoReleaser Pro features.
+</ParamField>
+
+<ParamField path="version" type="string" default="~> v2">
+  GoReleaser version to install. Accepts a fixed version tag such as `v2.3.0` or a semver constraint such as `~> v2`. When `version-file` is also set, this input is ignored and the version is read from the file instead.
+
+  <Warning>
+    Passing `version: 'latest'` is deprecated. The action emits a warning and falls back to `~> v2` automatically. Use `~> v2` explicitly instead.
+  </Warning>
+</ParamField>
+
+<ParamField path="version-file" type="string">
+  Path to a file that declares the GoReleaser version. The path is resolved relative to `workdir`. Currently only `.tool-versions` (asdf/mise format) is supported. When set, takes precedence over the `version` input. See [/reference/version-file](/reference/version-file) for format details and examples.
+</ParamField>
+
+<ParamField path="args" type="string">
+  Arguments to pass to the GoReleaser CLI. For example, `release --clean` runs a full release and removes the `dist/` directory first. This input is required when `install-only` is `false`; the action fails with an error if it is omitted in that case.
+</ParamField>
+
+<ParamField path="workdir" type="string" default=".">
+  Working directory relative to the repository root. GoReleaser is executed from this directory, and `version-file` paths are resolved relative to it. Use this when your Go module or GoReleaser config lives in a subdirectory of the repository.
+</ParamField>
+
+<ParamField path="install-only" type="boolean" default="false">
+  When `true`, installs GoReleaser and adds its directory to `PATH`, but does not execute it. Useful for multi-step workflows that need the `goreleaser` binary available as a standalone CLI tool in later steps without triggering a release.
+</ParamField>
+
+## Example workflow
+
+The following snippet uses every input. Adjust values for your project before use.
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          version-file: .tool-versions
+          args: release --clean
+          workdir: .
+          install-only: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```

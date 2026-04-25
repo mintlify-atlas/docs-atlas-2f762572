@@ -1,0 +1,88 @@
+---
+title: "Sign release artifacts with GPG in GoReleaser Action"
+description: "Configure GPG artifact signing in GoReleaser Action workflows using Import GPG, then reference the key fingerprint in your .goreleaser.yaml signing block."
+---
+
+GoReleaser Action supports GPG artifact signing as part of your GitHub Actions release workflow. By pairing it with the [Import GPG](https://github.com/crazy-max/ghaction-import-gpg) action, you can import a private key from a repository secret and pass the resulting fingerprint to GoReleaser for signing — all without exposing the key in your workflow file. This page covers the GitHub Actions integration; for the full GoReleaser GPG signing configuration, see the [GoReleaser signing documentation](https://goreleaser.com/customization/#Signing).
+
+**Prerequisites:** GPG signing must be enabled in your `.goreleaser.yaml` configuration before the workflow steps below will have any effect. See the [GoReleaser signing documentation](https://goreleaser.com/customization/#Signing) for how to configure the `signs` block.
+
+<Steps>
+  <Step title="Store your GPG key as repository secrets">
+    In your GitHub repository, go to **Settings > Secrets and variables > Actions** and add two secrets:
+
+    - `GPG_PRIVATE_KEY` — your exported GPG private key (ASCII-armored)
+    - `PASSPHRASE` — the passphrase protecting the key
+
+    These secrets are injected into the workflow at runtime and are never written to disk in plain text.
+  </Step>
+
+  <Step title="Add the Import GPG step to your workflow">
+    Add the `crazy-max/ghaction-import-gpg` step before the GoReleaser Action step. Set a step `id` so that downstream steps can reference its outputs:
+
+    ```yaml
+          -
+            name: Import GPG key
+            id: import_gpg
+            uses: crazy-max/ghaction-import-gpg@v7
+            with:
+              gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+              passphrase: ${{ secrets.PASSPHRASE }}
+    ```
+
+    The `id: import_gpg` field is required — it lets you reference the step's output values using `steps.import_gpg.outputs.<name>` in subsequent steps.
+  </Step>
+
+  <Step title="Pass the fingerprint to GoReleaser via an environment variable">
+    Add the GoReleaser Action step immediately after the Import GPG step, and pass the fingerprint output as the `GPG_FINGERPRINT` environment variable:
+
+    ```yaml
+          -
+            name: Run GoReleaser
+            uses: goreleaser/goreleaser-action@v7
+            with:
+              version: '~> v2'
+              args: release --clean
+            env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+    ```
+
+    The full two-step sequence looks like this:
+
+    ```yaml
+          -
+            name: Import GPG key
+            id: import_gpg
+            uses: crazy-max/ghaction-import-gpg@v7
+            with:
+              gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+              passphrase: ${{ secrets.PASSPHRASE }}
+          -
+            name: Run GoReleaser
+            uses: goreleaser/goreleaser-action@v7
+            with:
+              version: '~> v2'
+              args: release --clean
+            env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+    ```
+  </Step>
+
+  <Step title="Reference the fingerprint in .goreleaser.yaml">
+    In your `.goreleaser.yaml`, use the `GPG_FINGERPRINT` environment variable in the `signs` block to tell GoReleaser which key to sign with:
+
+    ```yaml
+    signs:
+      - artifacts: checksum
+        args: ["--batch", "-u", "{{ .Env.GPG_FINGERPRINT }}", "--output", "${signature}", "--detach-sign", "${artifact}"]
+    ```
+
+    GoReleaser expands `{{ .Env.GPG_FINGERPRINT }}` at release time using the value passed in from the workflow step.
+  </Step>
+</Steps>
+
+<Note>
+  This page covers only the GitHub Actions integration for GPG signing. For the full signing configuration — including how to sign different artifact types, configure multiple signers, or use a keyserver — see the [GoReleaser signing documentation](https://goreleaser.com/customization/#Signing).
+</Note>
